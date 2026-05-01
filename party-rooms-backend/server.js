@@ -19,14 +19,32 @@ const { register: registerSocketHandlers } = require('./socket/handlers');
 const PORT = Number(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-function parseOrigins() {
-  const raw = [process.env.FRONTEND_URL_LOCAL, process.env.FRONTEND_URL_PROD].filter(Boolean);
+/** Browser `Origin` is scheme+host+port only — no path. Normalize env URLs so
+ *  https://user.github.io/project and https://user.github.io both become https://user.github.io */
+function normalizeToOrigin(input) {
+  if (!input || typeof input !== 'string') return null;
+  const s = input.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s.includes('://') ? s : `https://${s}`);
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
 
-  if (raw.length === 0 && NODE_ENV !== 'production') {
+function parseOrigins() {
+  const fromEnv = [process.env.FRONTEND_URL_LOCAL, process.env.FRONTEND_URL_PROD]
+    .map(normalizeToOrigin)
+    .filter(Boolean);
+
+  const unique = [...new Set(fromEnv)];
+
+  if (unique.length === 0 && NODE_ENV !== 'production') {
     return ['http://localhost:5173', 'http://127.0.0.1:5173'];
   }
 
-  return raw;
+  return unique;
 }
 
 const allowedOrigins = parseOrigins();
