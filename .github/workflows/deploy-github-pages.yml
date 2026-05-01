@@ -1,0 +1,51 @@
+# Build Vue app and deploy to GitHub Pages → https://max-merezhko.github.io/party-rooms/
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          # Change here if your Render URL differs; or set repo Variable VITE_API_ORIGIN and use ${{ vars.VITE_API_ORIGIN }}
+          VITE_API_ORIGIN: https://party-rooms-api.onrender.com
+        run: npm run build
+
+      - name: SPA fallback (refresh /room/... on GitHub Pages)
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
